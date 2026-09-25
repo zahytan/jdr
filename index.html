@@ -552,7 +552,12 @@ textarea {
       const relances = Math.floor((total - 4) / 4);
       verdict = { cls: "ok", txt: relances ? "Succès + " + relances + " relance" + (relances > 1 ? "s" : "") : "Succès" };
     } else verdict = { cls: "ko", txt: "Échec" };
-    afficher(total, libelle, morceaux.join(" · "), verdict, des);
+    const extra = [];
+    if (t.tirages.length > 1) extra.push("d" + n + " explosé : " + t.tirages.join(" + "));
+    if (joker && des[1].explose) extra.push("Joker explosé : " + morceaux[1].replace(/^Joker d6 : /, "").split("+").join(" + "));
+    if (modificateur) extra.push("modificateur " + (modificateur > 0 ? "+" : "") + modificateur);
+    if (malus) extra.push("blessures/fatigue −" + malus);
+    afficher(total, libelle, morceaux.join(" · "), verdict, des, extra.join(" · "));
   }
 
   function jetDegats(libelle, formule, attributs) {
@@ -577,7 +582,7 @@ textarea {
     afficher(total, libelle + " (dégâts)", morceaux.join(" · "), null);
   }
 
-  function afficher(total, quoi, detail, verdict, des) {
+  function afficher(total, quoi, detail, verdict, des, detailVisible) {
     const zone = document.getElementById("des");
     zone.replaceChildren(...(des || []).map(d => {
       const s = document.createElement("span");
@@ -597,7 +602,7 @@ textarea {
       v.textContent = verdict.txt;
       q.appendChild(v);
     }
-    document.getElementById("detail").textContent = detail;
+    document.getElementById("detail").textContent = des ? (detailVisible || "") : detail;
     historique.unshift(quoi + " → " + total + (verdict ? " (" + verdict.txt + ")" : "") + " · " + detail);
     historique.length = Math.min(historique.length, 15);
     const ul = document.getElementById("historique");
@@ -843,7 +848,7 @@ textarea {
       pj: actif, quoi: String(quoi).slice(0, 120), total: total,
       detail: String(detail).slice(0, 300), verdict: String(verdict).slice(0, 40),
       t: firebase.database.ServerValue.TIMESTAMP
-    }).catch(() => {});
+    }).catch(() => statut("err", "Jet non transmis au MJ : les règles Firebase bloquent l'envoi"));
   }
 
   /* ---------- Firebase (facultatif) ---------- */
