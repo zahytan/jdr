@@ -173,14 +173,16 @@ const PERSONNAGES = [
       statut: "Compagnon libre : n'appartient à personne",
       blessuresMax: 2,
       attributs: { "Agilité": "d10", "Ruse": "d10", "Force": "d4", "Trempe": "d6", "Vigueur": "d4" },
-      competences: { "Perception": "d8", "Discrétion": "d8", "Combat": "d4" },
+      competences: { "Perception": "d8", "Discrétion": "d8", "Attaque à distance": "d6", "Combat": "d4" },
       derives: { "Parade": 4, "Robustesse": 3, "Allure": 4 },
-      attaques: [],
+      attaques: [
+        { nom: "Ball'Ombre", degats: "2d8", portee: "12/24", effet: "Type Spectre. Apprise par CT auprès de son ancien dresseur." }
+      ],
       capacites: [
         { nom: "Téléport", desc: "Se déplace de 20\" sans provoquer d'attaque d'opportunité." },
         { nom: "Téléport de secours", desc: "Une fois par scène : emmène Kael et un allié adjacent hors de danger." },
         { nom: "Psychométrie", desc: "En touchant un objet ancien, jet de Ruse pour percevoir un fragment de son passé." },
-        { nom: "Sommeil profond", contrainte: true, desc: "Dort 18 heures sur 24." },
+        { nom: "Sommeil profond", contrainte: true, desc: "Dort 18 heures sur 24. Ne peut attaquer qu'une fois par scène, sauf si Kael réussit un jet de Dressage pour le tenir éveillé." },
         { nom: "Esprit libre", contrainte: true, desc: "Il lui arrive d'agir de lui-même, sans ordre de Kael." }
       ]
     }
