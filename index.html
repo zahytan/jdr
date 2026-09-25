@@ -532,7 +532,7 @@ textarea {
     const n = faces(de);
     const t = lancer(n);
     const morceaux = [(joker ? "Compétence " : "") + detailDe(n, t)];
-    const des = [{ lib: "d" + n, val: t.total, explose: t.tirages.length > 1, garde: true }];
+    const des = [{ lib: "d" + n, val: t.total, explose: t.tirages.length - 1, garde: true }];
     let meilleur = t.total;
     let critique = false;
     if (joker) {
@@ -541,7 +541,7 @@ textarea {
       meilleur = Math.max(t.total, j.total);
       critique = t.tirages[0] === 1 && j.tirages[0] === 1;
       des[0].garde = t.total >= j.total;
-      des.push({ lib: "Joker d6", val: j.total, explose: j.tirages.length > 1, garde: j.total > t.total, joker: true });
+      des.push({ lib: "Joker d6", val: j.total, explose: j.tirages.length - 1, garde: j.total > t.total, joker: true });
     }
     if (modificateur) morceaux.push("mod " + (modificateur > 0 ? "+" : "") + modificateur);
     if (malus) morceaux.push("blessures/fatigue −" + malus);
@@ -587,7 +587,8 @@ textarea {
     zone.replaceChildren(...(des || []).map(d => {
       const s = document.createElement("span");
       s.className = "de-jet" + (d.joker ? " joker" : "") + (d.garde ? " garde" : "");
-      s.textContent = d.lib + " : " + d.val + (d.explose ? " 💥" : "") + (d.garde && des.length > 1 ? " ✓" : "");
+      s.textContent = d.lib + " : " + d.val + (d.explose ? " 💥" + (d.explose > 1 ? "×" + d.explose : "") : "") + (d.garde && des.length > 1 ? " ✓" : "");
+      if (d.explose) s.title = "Le dé a explosé " + d.explose + " fois";
       return s;
     }));
     envoyerJet(quoi, total, detail, verdict ? verdict.txt : "");
