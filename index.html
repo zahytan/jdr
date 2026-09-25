@@ -343,17 +343,19 @@ main { max-width: 1100px; margin: 0 auto; padding: 24px 20px; display: grid; gap
 .malus { margin: 10px 0 0; font-size: 0.9rem; color: var(--danger); min-height: 1.4em; }
 
 /* ---------- Dés cliquables ---------- */
-.traits { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.traits { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 8px; }
+.attributs { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
 .trait {
   display: flex; justify-content: space-between; align-items: center; gap: 6px;
   text-align: left; border: 1px solid var(--trait); background: var(--surface-2);
   border-radius: 10px; padding: 10px 12px;
 }
 .trait:hover { border-color: var(--argile); }
+.trait > span:first-child { min-width: 0; overflow-wrap: break-word; line-height: 1.25; font-size: 0.95rem; }
 .trait .de {
   font-family: var(--titre); font-weight: 800; color: var(--argile);
   background: var(--argile-soft); border-radius: 6px; padding: 1px 7px;
-}
+ flex: none;}
 .attributs .trait { flex-direction: column; align-items: flex-start; }
 .attributs .trait .de { font-size: 1.25rem; }
 .derives { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
