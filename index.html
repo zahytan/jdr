@@ -359,7 +359,15 @@ main { max-width: 1100px; margin: 0 auto; padding: 24px 20px; display: grid; gap
 .tag.majeur { background: var(--danger-soft); color: var(--danger); }
 .tag.contrainte { background: var(--argile-soft); color: var(--argile); }
 .liste p { margin: 2px 0 0; color: var(--gris); font-size: 0.95rem; }
-.obj { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.equip li { display: grid; gap: 6px; }
+.obj-ligne { display: flex; gap: 6px; align-items: center; }
+.equip input { border: 1px solid var(--trait); background: var(--surface); border-radius: 8px; padding: 6px 8px; min-width: 0; }
+.obj-nom { flex: 1 1 auto; font-weight: 700; }
+.obj-deg { width: 96px; flex: none; }
+.obj-effet { width: 100%; color: var(--gris); font-size: 0.92rem; }
+.suppr { border: 0; background: transparent; color: var(--gris); font-size: 1rem; width: 30px; height: 30px; border-radius: 50%; flex: none; }
+.suppr:hover { background: var(--danger-soft); color: var(--danger); }
+.ajout { margin-top: 10px; border: 2px dashed var(--trait); background: transparent; border-radius: 10px; padding: 8px 12px; font-weight: 700; color: var(--argile); width: 100%; }
 
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
@@ -415,7 +423,7 @@ textarea {
   <div class="bandeau-inner">
     <h1>Le Tombeau d'Argile</h1>
     <p>Centre de recherches des Ruines d'Alpha. Touche une caractéristique ou une compétence pour lancer les dés.</p>
-    <div class="sync" id="sync" data-etat="local"><i></i><span>Enregistré sur cet appareil</span></div>
+    <div class="sync" id="sync" data-etat="local"><i></i><span>Connexion…</span></div>
     <nav class="onglets" id="onglets" role="tablist" aria-label="Personnages"></nav>
   </div>
 </header>
@@ -451,20 +459,26 @@ textarea {
   const faces = d => parseInt(String(d).replace(/[^0-9]/g, ""), 10) || 4;
   const cle = id => "expeAlpha:" + id;
 
+  function equipementParDefaut(p) {
+    return (p.equipement || []).map(o => ({
+      nom: o.nom || "", degats: o.degats || "",
+      effet: [o.portee, o.effet].filter(Boolean).join(" · ")
+    }));
+  }
   function etatParDefaut(p) {
     return { nom: p.nomParDefaut || "", genre: "", bennies: p.bennies, blessures: 0, fatigue: 0, secoue: false,
-             pkBlessures: 0, pkSecoue: false, notes: "" };
+             pkBlessures: 0, pkSecoue: false, notes: "", equipement: equipementParDefaut(p) };
+  }
+  /* Firebase peut renvoyer une liste sous forme d'objet : on la remet en tableau propre. */
+  function listeObjets(v) {
+    const brut = Array.isArray(v) ? v : (v && typeof v === "object" ? Object.keys(v).sort((a, b) => a - b).map(k => v[k]) : []);
+    return brut.filter(Boolean).map(o => ({ nom: String(o.nom || ""), degats: String(o.degats || ""), effet: String(o.effet || "") }));
   }
 
+  /* Les fiches sont chargées depuis Firebase uniquement. */
   const etats = {};
-  PERSONNAGES.forEach(p => {
-    let e = etatParDefaut(p);
-    try {
-      const brut = localStorage.getItem(cle(p.id));
-      if (brut) e = Object.assign(e, JSON.parse(brut));
-    } catch (_) { /* stockage indisponible : on garde l'état par défaut */ }
-    etats[p.id] = e;
-  });
+  const charge = {};
+  PERSONNAGES.forEach(p => { etats[p.id] = etatParDefaut(p); });
 
   let actif = PERSONNAGES[0].id;
   const demande = new URLSearchParams(location.search).get("pj") || location.hash.slice(1);
@@ -477,13 +491,11 @@ textarea {
   let db = null;
   const minuteurs = {};
   function sauver(id) {
-    try { localStorage.setItem(cle(id), JSON.stringify(etats[id])); } catch (_) {}
-    if (db) {
-      clearTimeout(minuteurs[id]);
-      minuteurs[id] = setTimeout(() => {
-        db.ref("fiches/" + id).set(etats[id]).catch(() => statut("err", "Échec de la synchronisation"));
-      }, 400);
-    }
+    if (!db || !charge[id]) return;
+    clearTimeout(minuteurs[id]);
+    minuteurs[id] = setTimeout(() => {
+      db.ref("fiches/" + id).set(etats[id]).catch(() => statut("err", "Échec de l'enregistrement : vérifie ta connexion"));
+    }, 400);
   }
   function statut(etat, texte) {
     const el = document.getElementById("sync");
@@ -640,8 +652,19 @@ textarea {
           <h3>Handicaps</h3>
           <ul class="liste">${p.handicaps.map(h => `<li><b>${esc(h.nom)}</b><span class="tag ${h.niveau === "Majeur" ? "majeur" : ""}">${esc(h.niveau)}</span><p>${esc(h.desc)}</p></li>`).join("")}</ul>
 
-          ${p.equipement ? `<h3>Équipement</h3>
-          <ul class="liste">${p.equipement.map((o, i) => `<li><div class="obj"><div><b>${esc(o.nom)}</b>${o.degats ? ` · ${esc(o.degats)} · ${esc(o.portee)}` : ""}${o.effet ? `<p>${esc(o.effet)}</p>` : ""}</div>${o.degats ? `<button type="button" class="btn-degats" data-action="degatsPJ" data-i="${i}">Dégâts</button>` : ""}</div></li>`).join("")}</ul>` : ""}
+          <h3>Équipement</h3>
+          <ul class="liste equip">${e.equipement.map((o, i) => `
+            <li>
+              <div class="obj-ligne">
+                <input class="obj-nom" data-eq="${i}" data-k="nom" value="${esc(o.nom)}" placeholder="Objet" aria-label="Nom de l'objet">
+                <input class="obj-deg" data-eq="${i}" data-k="degats" value="${esc(o.degats)}" placeholder="Dégâts" aria-label="Dégâts (ex. Force+d6)">
+                ${/d\d/i.test(o.degats) ? `<button type="button" class="btn-degats" data-action="degatsPJ" data-i="${i}">Dégâts</button>` : ""}
+                <button type="button" class="suppr" data-action="supprObjet" data-i="${i}" aria-label="Retirer cet objet">✕</button>
+              </div>
+              <input class="obj-effet" data-eq="${i}" data-k="effet" value="${esc(o.effet)}" placeholder="Effet, quantité, remarque…" aria-label="Effet de l'objet">
+            </li>`).join("")}
+          </ul>
+          <button type="button" class="ajout" data-action="ajoutObjet">+ Ajouter un objet</button>
         </article>
 
         <article class="carte">
@@ -732,9 +755,21 @@ textarea {
         return;
       }
       case "degatsPJ": {
-        const o = p.equipement[parseInt(b.dataset.i, 10)];
-        jetDegats((e.nom || p.role) + " · " + o.nom, o.degats, p.attributs);
+        const o = e.equipement[parseInt(b.dataset.i, 10)];
+        jetDegats((e.nom || p.role) + " · " + (o.nom || "Objet"), o.degats, p.attributs);
         return;
+      }
+      case "ajoutObjet":
+        if (e.equipement.length >= 40) return;
+        e.equipement.push({ nom: "", degats: "", effet: "" });
+        sauver(actif); rendre();
+        { const champs = document.querySelectorAll(".obj-nom"); if (champs.length) champs[champs.length - 1].focus(); }
+        return;
+      case "supprObjet": {
+        const o = e.equipement[parseInt(b.dataset.i, 10)];
+        if (o.nom && !confirm("Retirer « " + o.nom + " » de l'équipement ?")) return;
+        e.equipement.splice(parseInt(b.dataset.i, 10), 1);
+        break;
       }
       case "bennies": e.bennies = Math.max(0, e.bennies + val); break;
       case "session": e.bennies = p.bennies; break;
@@ -750,10 +785,18 @@ textarea {
   });
 
   document.getElementById("fiche").addEventListener("input", ev => {
-    const champ = ev.target.dataset.champ;
-    if (!champ) return;
-    etats[actif][champ] = ev.target.value;
-    sauver(actif);
+    const t = ev.target;
+    if (t.dataset.champ) { etats[actif][t.dataset.champ] = t.value; sauver(actif); return; }
+    if (t.dataset.eq !== undefined) {
+      const o = etats[actif].equipement[parseInt(t.dataset.eq, 10)];
+      if (!o) return;
+      o[t.dataset.k] = t.value.slice(0, t.dataset.k === "effet" ? 300 : t.dataset.k === "nom" ? 80 : 30);
+      sauver(actif);
+    }
+  });
+  /* Le bouton Dégâts apparaît quand on quitte le champ, pour ne pas perdre la saisie. */
+  document.getElementById("fiche").addEventListener("change", ev => {
+    if (ev.target.dataset.k === "degats") rendre();
   });
 
   document.querySelectorAll("[data-mod]").forEach(b => b.addEventListener("click", () => {
@@ -785,22 +828,28 @@ textarea {
       db = firebase.database();
       db.ref(".info/connected").on("value", s => {
         if (s.val()) statut("ok", "Synchronisé avec le MJ");
-        else statut("err", "Hors ligne, enregistré sur cet appareil");
+        else statut("err", "Hors ligne : tes modifications ne sont pas enregistrées");
       });
       PERSONNAGES.forEach(p => {
         db.ref("fiches/" + p.id).on("value", snap => {
           const distant = snap.val();
-          if (!distant) { sauver(p.id); return; }
-          if (JSON.stringify(distant) === JSON.stringify(etats[p.id])) return;
-          etats[p.id] = Object.assign(etatParDefaut(p), distant);
-          try { localStorage.setItem(cle(p.id), JSON.stringify(etats[p.id])); } catch (_) {}
-          const saisie = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.champ;
+          const premier = !charge[p.id];
+          charge[p.id] = true;
+          if (!distant) { etats[p.id] = etatParDefaut(p); sauver(p.id); if (p.id === actif) rendre(); return; }
+          const neuf = Object.assign(etatParDefaut(p), distant);
+          neuf.equipement = distant.equipement === undefined ? equipementParDefaut(p) : listeObjets(distant.equipement);
+          const aCompleter = distant.equipement === undefined;
+          if (!premier && JSON.stringify(neuf) === JSON.stringify(etats[p.id])) return;
+          etats[p.id] = neuf;
+          if (aCompleter) sauver(p.id);
+          const ae = document.activeElement;
+          const saisie = ae && ae.dataset && (ae.dataset.champ || ae.dataset.eq !== undefined);
           if (p.id === actif && !saisie) rendre();
         });
       });
     } catch (_) {
       db = null;
-      statut("err", "Synchronisation impossible, enregistré sur cet appareil");
+      statut("err", "Connexion impossible : tes modifications ne seront pas enregistrées");
     }
   }
 
