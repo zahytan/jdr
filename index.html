@@ -25,6 +25,8 @@ const FIREBASE_CONFIG = {
 const PERSONNAGES = [
   {
     id: "chef",
+    image: "img/chef.jpg",
+    imagePos: "62% 35%",
     role: "Chef de chantier",
     emploi: "Tank",
     bennies: 3,
@@ -72,6 +74,8 @@ const PERSONNAGES = [
   },
   {
     id: "assistante",
+    image: "img/assistante.jpg",
+    imagePos: "50% 30%",
     role: "Assistante de la directrice",
     emploi: "Chercheuse",
     bennies: 3,
@@ -117,6 +121,8 @@ const PERSONNAGES = [
   },
   {
     id: "apprenti",
+    image: "img/apprenti.jpg",
+    imagePos: "55% 40%",
     role: "Apprenti soignant",
     emploi: "Soigneur",
     nomParDefaut: "Nathan",
@@ -164,6 +170,8 @@ const PERSONNAGES = [
   },
   {
     id: "archeologue",
+    image: "img/archeologue.jpg",
+    imagePos: "50% 18%",
     role: "Archéologue et dresseur",
     emploi: "Aventurier",
     nomParDefaut: "Kael Oryn",
@@ -299,6 +307,7 @@ main { max-width: 1100px; margin: 0 auto; padding: 24px 20px; display: grid; gap
 .carte { background: var(--surface); border: 1px solid var(--trait); border-radius: 14px; padding: 20px; }
 .carte + .carte { margin-top: 0; }
 .carte-pokemon { border-top: 6px solid var(--argile); }
+.portrait { display: block; width: calc(100% + 40px); max-width: none; margin: -20px -20px 16px; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 13px 13px 0 0; background: var(--surface-2); }
 .carte h2 { font-family: var(--titre); font-weight: 800; font-size: 1.6rem; margin: 0; line-height: 1.1; }
 .carte h3 { font-family: var(--titre); font-weight: 700; font-size: 1.05rem; margin: 22px 0 10px; }
 .sous { color: var(--gris); margin: 4px 0 0; }
@@ -607,6 +616,7 @@ textarea {
     document.getElementById("fiche").innerHTML = `
       <div class="colonne">
         <article class="carte">
+          ${p.image ? `<img class="portrait" src="${esc(p.image)}" alt="Illustration : ${esc(p.role)} et ${esc(pk.nom)}" style="object-position:${esc(p.imagePos || "50% 50%")}" loading="lazy">` : ""}
           <h2>${esc(p.role)}</h2>
           <p class="sous">${esc(p.emploi)} · Joker · Partenaire : ${esc(pk.nom)}</p>
           ${p.histoire ? `<p class="histoire">${esc(p.histoire)}</p>` : ""}
