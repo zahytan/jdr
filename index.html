@@ -44,6 +44,13 @@ const PERSONNAGES = [
       { nom: "Têtu", niveau: "Mineur", desc: "Veut toujours avoir le dernier mot." },
       { nom: "Loyal", niveau: "Mineur", desc: "N'abandonne jamais un membre de l'équipe." }
     ],
+    equipement: [
+      { nom: "Masse de chantier", degats: "Force+d6", portee: "Mêlée", effet: "" },
+      { nom: "Casque de chantier", effet: "Armure 1 contre les coups à la tête." },
+      { nom: "Poké Ball (×1)", effet: "Vide. De quoi capturer un Pokémon." },
+      { nom: "Lampe frontale et corde (15 m)", effet: "" },
+      { nom: "Argent", effet: "500 ₽" }
+    ],
     pokemon: {
       nom: "Charpenti",
       type: "Combat",
@@ -82,6 +89,12 @@ const PERSONNAGES = [
     handicaps: [
       { nom: "Maladroite", niveau: "Majeur", desc: "−2 en Athlétisme et en Discrétion." },
       { nom: "Loyale envers la Directrice", niveau: "Mineur", desc: "Ne va jamais contre les consignes d'Edith Smith." }
+    ],
+    equipement: [
+      { nom: "Carnet de relevés", effet: "Confié par Edith Smith. Toutes les traductions et observations de l'équipe y sont notées." },
+      { nom: "Spray répulsif (3 doses)", effet: "Jet d'Agilité : sur un succès, un Pokémon sauvage adjacent est Secoué." },
+      { nom: "Lampe torche et appareil photo", effet: "" },
+      { nom: "Argent", effet: "500 ₽" }
     ],
     pokemon: {
       nom: "Gardevoir",
@@ -122,6 +135,13 @@ const PERSONNAGES = [
       { nom: "Jeune", niveau: "Mineur", desc: "15 ans. +1 jeton de chance par session, mais les adultes le sous-estiment souvent." },
       { nom: "Syndrome de l'imposteur", niveau: "Mineur", desc: "−1 à ses jets quand un adulte remet en cause son jugement, ou quand il doit décider seul d'un soin risqué." },
       { nom: "Serment du soigneur", niveau: "Mineur", desc: "Ne refuse jamais un soin qu'on lui demande." }
+    ],
+    equipement: [
+      { nom: "Trousse de soins", effet: "Offerte de la part de l'Infirmière Joëlle. +1 aux jets de Soins." },
+      { nom: "Potion (×2)", effet: "Une action : soigne 1 blessure d'un Pokémon." },
+      { nom: "Sifflet du Centre Pokémon", effet: "Nymphali l'entend de très loin et accourt." },
+      { nom: "Lampe torche", effet: "" },
+      { nom: "Argent", effet: "500 ₽" }
     ],
     pokemon: {
       nom: "Nymphali",
@@ -164,6 +184,13 @@ const PERSONNAGES = [
       { nom: "Compte à régler", niveau: "Majeur", desc: "Cherche l'intermédiaire qui a truqué le combat où Voltali est mort. Ne peut pas ignorer une piste qui y mène (jet de Trempe pour résister)." },
       { nom: "Arrogance", niveau: "Mineur", desc: "Ne demande jamais d'aide à quelqu'un qu'il n'a pas vu à l'œuvre." },
       { nom: "Sans le sou", niveau: "Mineur", desc: "Commence chaque scénario avec 100 ₽ de moins que le reste du groupe." }
+    ],
+    equipement: [
+      { nom: "Kit de fouille", effet: "Pinceaux, truelle, loupe. +1 aux jets d'Érudition sur le terrain." },
+      { nom: "Corde et piolet", effet: "+1 aux jets d'Athlétisme pour grimper ou descendre." },
+      { nom: "La Poké Ball de Voltali", effet: "Vide. Il ne s'en sépare jamais." },
+      { nom: "Lampe frontale", effet: "" },
+      { nom: "Argent", effet: "400 ₽ (Sans le sou)" }
     ],
     pokemon: {
       nom: "Abra",
@@ -332,6 +359,7 @@ main { max-width: 1100px; margin: 0 auto; padding: 24px 20px; display: grid; gap
 .tag.majeur { background: var(--danger-soft); color: var(--danger); }
 .tag.contrainte { background: var(--argile-soft); color: var(--argile); }
 .liste p { margin: 2px 0 0; color: var(--gris); font-size: 0.95rem; }
+.obj { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
@@ -611,6 +639,9 @@ textarea {
 
           <h3>Handicaps</h3>
           <ul class="liste">${p.handicaps.map(h => `<li><b>${esc(h.nom)}</b><span class="tag ${h.niveau === "Majeur" ? "majeur" : ""}">${esc(h.niveau)}</span><p>${esc(h.desc)}</p></li>`).join("")}</ul>
+
+          ${p.equipement ? `<h3>Équipement</h3>
+          <ul class="liste">${p.equipement.map((o, i) => `<li><div class="obj"><div><b>${esc(o.nom)}</b>${o.degats ? ` · ${esc(o.degats)} · ${esc(o.portee)}` : ""}${o.effet ? `<p>${esc(o.effet)}</p>` : ""}</div>${o.degats ? `<button type="button" class="btn-degats" data-action="degatsPJ" data-i="${i}">Dégâts</button>` : ""}</div></li>`).join("")}</ul>` : ""}
         </article>
 
         <article class="carte">
@@ -698,6 +729,11 @@ textarea {
       case "degats": {
         const a = p.pokemon.attaques[parseInt(b.dataset.i, 10)];
         jetDegats(p.pokemon.nom + " · " + a.nom, a.degats, p.pokemon.attributs);
+        return;
+      }
+      case "degatsPJ": {
+        const o = p.equipement[parseInt(b.dataset.i, 10)];
+        jetDegats((e.nom || p.role) + " · " + o.nom, o.degats, p.attributs);
         return;
       }
       case "bennies": e.bennies = Math.max(0, e.bennies + val); break;
