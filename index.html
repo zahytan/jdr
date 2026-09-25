@@ -424,6 +424,11 @@ textarea {
 .de-jet { font-size: 0.8rem; font-weight: 700; border-radius: 6px; padding: 1px 8px; background: #54456A; color: #E6DDF0; opacity: 0.7; }
 .de-jet.joker { background: #7A4E2A; }
 .de-jet.garde { opacity: 1; outline: 2px solid #FFD27A; }
+.relancer { background: #FFD27A !important; color: #2E1F00 !important; border-color: #FFD27A !important; }
+.relancer:disabled { background: transparent !important; color: #CFC4DC !important; border-color: #7C6C92 !important; cursor: not-allowed; }
+.depenser { width: auto !important; border-radius: 8px !important; padding: 0 12px; font-size: 0.9rem; }
+.depenser:disabled { opacity: 0.45; cursor: not-allowed; }
+.aide-jeton { margin: 6px 0 0; font-size: 0.78rem; color: var(--gris); line-height: 1.3; }
 #historique li { border-top: 1px solid #54456A; padding: 4px 0; }
 #plateau .total.flash { animation: flash 0.35s ease-out; }
 @keyframes flash { from { transform: scale(1.35); color: #FFD27A; } to { transform: scale(1); } }
@@ -459,6 +464,7 @@ textarea {
       <b id="modval">0</b>
       <button type="button" data-mod="1" aria-label="Ajouter 1">+</button>
     </div>
+    <button type="button" id="relancer" class="relancer" hidden>Relancer avec un jeton</button>
     <button type="button" id="voirHisto" aria-expanded="false">Historique</button>
   </div>
   <ul id="historique" hidden></ul>
@@ -528,13 +534,15 @@ textarea {
 
   function malusJoueur(e) { return Math.min(e.blessures, 3) + e.fatigue; }
 
-  function jetTrait(libelle, de, joker, malus) {
+  function calculJet(de, joker, malus) {
     const n = faces(de);
     const t = lancer(n);
     const morceaux = [(joker ? "Compétence " : "") + detailDe(n, t)];
     const des = [{ lib: "d" + n, val: t.total, explose: t.tirages.length - 1, garde: true }];
     let meilleur = t.total;
     let critique = false;
+    const extra = [];
+    if (t.tirages.length > 1) extra.push("d" + n + " explosé : " + t.tirages.join(" + "));
     if (joker) {
       const j = lancer(6);
       morceaux.push("Joker " + detailDe(6, j));
@@ -542,9 +550,10 @@ textarea {
       critique = t.tirages[0] === 1 && j.tirages[0] === 1;
       des[0].garde = t.total >= j.total;
       des.push({ lib: "Joker d6", val: j.total, explose: j.tirages.length - 1, garde: j.total > t.total, joker: true });
+      if (j.tirages.length > 1) extra.push("Joker explosé : " + j.tirages.join(" + "));
     }
-    if (modificateur) morceaux.push("mod " + (modificateur > 0 ? "+" : "") + modificateur);
-    if (malus) morceaux.push("blessures/fatigue −" + malus);
+    if (modificateur) { morceaux.push("mod " + (modificateur > 0 ? "+" : "") + modificateur); extra.push("modificateur " + (modificateur > 0 ? "+" : "") + modificateur); }
+    if (malus) { morceaux.push("blessures/fatigue −" + malus); extra.push("blessures/fatigue −" + malus); }
     const total = meilleur + modificateur - malus;
     let verdict;
     if (critique) verdict = { cls: "crit", txt: "Échec critique" };
@@ -552,12 +561,44 @@ textarea {
       const relances = Math.floor((total - 4) / 4);
       verdict = { cls: "ok", txt: relances ? "Succès + " + relances + " relance" + (relances > 1 ? "s" : "") : "Succès" };
     } else verdict = { cls: "ko", txt: "Échec" };
-    const extra = [];
-    if (t.tirages.length > 1) extra.push("d" + n + " explosé : " + t.tirages.join(" + "));
-    if (joker && des[1].explose) extra.push("Joker explosé : " + morceaux[1].replace(/^Joker d6 : /, "").split("+").join(" + "));
-    if (modificateur) extra.push("modificateur " + (modificateur > 0 ? "+" : "") + modificateur);
-    if (malus) extra.push("blessures/fatigue −" + malus);
-    afficher(total, libelle, morceaux.join(" · "), verdict, des, extra.join(" · "));
+    return { total, verdict, des, detail: morceaux.join(" · "), extra: extra.join(" · "), critique };
+  }
+
+  /* Dernier jet d'un dresseur : c'est celui qu'on peut relancer avec un jeton. */
+  let dernierJet = null;
+
+  function jetTrait(libelle, de, joker, malus) {
+    const r = calculJet(de, joker, malus);
+    dernierJet = joker ? { libelle, de, malus, pj: actif, meilleur: r } : null;
+    afficher(r.total, libelle, r.detail, r.verdict, r.des, r.extra);
+    majRelance();
+  }
+
+  function relancerAvecJeton() {
+    const e = etats[actif];
+    if (!dernierJet || dernierJet.pj !== actif || dernierJet.meilleur.critique || e.bennies < 1) return;
+    e.bennies -= 1;
+    sauver(actif);
+    const ancien = dernierJet.meilleur;
+    const nouveau = calculJet(dernierJet.de, true, dernierJet.malus);
+    const garde = nouveau.total >= ancien.total ? nouveau : ancien;
+    dernierJet.meilleur = garde;
+    const note = "Relancé avec un jeton : ancien " + ancien.total + ", nouveau " + nouveau.total + ", on garde " + garde.total;
+    afficher(garde.total, dernierJet.libelle + " (relancé)", note + " · " + nouveau.detail, garde.verdict,
+             nouveau.des, note + (nouveau.extra ? " · " + nouveau.extra : ""));
+    rendre();
+    majRelance();
+  }
+
+  function majRelance() {
+    const b = document.getElementById("relancer");
+    const e = etats[actif];
+    const ok = dernierJet && dernierJet.pj === actif;
+    b.hidden = !ok;
+    if (!ok) return;
+    if (dernierJet.meilleur.critique) { b.disabled = true; b.textContent = "Un échec critique ne se relance pas"; return; }
+    b.disabled = e.bennies < 1;
+    b.textContent = e.bennies < 1 ? "Plus de jeton de chance" : "Relancer avec un jeton (" + e.bennies + ")";
   }
 
   function jetDegats(libelle, formule, attributs) {
@@ -649,12 +690,12 @@ textarea {
 
           <div class="etat">
             <div class="jauge">
-              <div class="nom"><span>Jetons de chance</span><button type="button" class="lien" data-action="session">Nouvelle session</button></div>
+              <div class="nom"><span>Jetons de chance</span></div>
               <div class="compteur">
-                <button type="button" data-action="bennies" data-val="-1" aria-label="Dépenser un jeton de chance">−</button>
                 <b>${e.bennies}</b>
-                <button type="button" data-action="bennies" data-val="1" aria-label="Gagner un jeton de chance">+</button>
+                <button type="button" class="depenser" data-action="depenser" ${e.bennies < 1 ? "disabled" : ""}>Dépenser</button>
               </div>
+              <p class="aide-jeton">Pour ne plus être Secoué ou encaisser des dégâts. Le MJ distribue les nouveaux jetons.</p>
             </div>
             <div class="jauge">
               <div class="nom"><span>Blessures</span></div>
@@ -748,6 +789,7 @@ textarea {
       </article>`;
 
     document.querySelectorAll("#onglets [role=tab]").forEach(b => b.setAttribute("aria-selected", b.dataset.id === actif));
+    majRelance();
   }
 
   function rendreOnglets() {
@@ -803,8 +845,11 @@ textarea {
         e.equipement.splice(parseInt(b.dataset.i, 10), 1);
         break;
       }
-      case "bennies": e.bennies = Math.max(0, e.bennies + val); break;
-      case "session": e.bennies = p.bennies; break;
+      case "depenser":
+        if (e.bennies < 1 || !confirm("Dépenser un jeton de chance ?")) return;
+        e.bennies -= 1;
+        envoyerJet((e.nom || p.role) + " dépense un jeton de chance", e.bennies, "Il lui en reste " + e.bennies, "Jeton dépensé");
+        break;
       case "blessures": bascule("blessures"); break;
       case "fatigue": bascule("fatigue"); break;
       case "pkBlessures": bascule("pkBlessures"); break;
@@ -835,6 +880,8 @@ textarea {
     modificateur = Math.max(-10, Math.min(10, modificateur + parseInt(b.dataset.mod, 10)));
     document.getElementById("modval").textContent = (modificateur > 0 ? "+" : "") + modificateur;
   }));
+
+  document.getElementById("relancer").addEventListener("click", relancerAvecJeton);
 
   document.getElementById("voirHisto").addEventListener("click", ev => {
     const ul = document.getElementById("historique");
