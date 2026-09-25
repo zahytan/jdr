@@ -51,7 +51,7 @@ const PERSONNAGES = [
       competences: { "Combat": "d8", "Athlétisme": "d6", "Perception": "d6" },
       derives: { "Parade": 6, "Robustesse": 6, "Allure": 5 },
       attaques: [
-        { nom: "Coup de Poutre", degats: "Force+d8", portee: "Mêlée", effet: "" },
+        { nom: "Marteau-Poing", degats: "Force+d8", portee: "Mêlée", effet: "Coup puissant mais lourd : Allure −2 pour Charpenti au round suivant." },
         { nom: "Casse-Brique", degats: "Force+d6", portee: "Mêlée", effet: "Ignore l'armure et brise les obstacles." }
       ],
       capacites: [
@@ -91,7 +91,7 @@ const PERSONNAGES = [
       derives: { "Parade": 5, "Robustesse": 5, "Allure": 6 },
       attaques: [
         { nom: "Psyko", degats: "2d8", portee: "12/24", effet: "" },
-        { nom: "Protection", degats: "", portee: "Allié", effet: "+4 Parade à un allié pendant 1 round." }
+        { nom: "Protection", degats: "", portee: "Alliés à 5\"", effet: "Un mur psychique protège l'équipe : +2 Robustesse contre les attaques physiques pendant 3 rounds." }
       ],
       capacites: [
         { nom: "Lien empathique", desc: "Ressent les émotions et la position de sa dresseuse jusqu'à 1 km." },
