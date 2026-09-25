@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Le Tombeau d'Argile · Fiches joueurs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<script>
+/* =====================================================================
+   ZONE À MODIFIER
+   ---------------------------------------------------------------------
+   1) FIREBASE_CONFIG : colle ici le bloc donné par Firebase.
+      Tant qu'il reste à null, chaque fiche est enregistrée
+      uniquement dans le navigateur du joueur.
+   2) PERSONNAGES : toutes les fiches. Pour changer une attaque,
+      modifie simplement le texte entre guillemets.
+   ===================================================================== */
+const FIREBASE_CONFIG = null;
+
+const PERSONNAGES = [
+  {
+    id: "chef",
+    role: "Chef de chantier",
+    emploi: "Tank",
+    bennies: 3,
+    attributs: { "Agilité": "d4", "Ruse": "d4", "Force": "d8", "Trempe": "d6", "Vigueur": "d8" },
+    derives: { "Parade": 5, "Robustesse": 8, "Allure": 6 },
+    competences: {
+      "Athlétisme": "d6", "Combat": "d6", "Réparation": "d6", "Perception": "d6",
+      "Dressage": "d6", "Intimidation": "d4", "Survie": "d4",
+      "Connaissances communes": "d4", "Persuasion": "d4", "Discrétion": "d4"
+    },
+    atouts: [
+      { nom: "Costaud", desc: "+1 Robustesse." },
+      { nom: "Bagarreur", desc: "+1 Robustesse. Coups de poing à Force+d4." }
+    ],
+    handicaps: [
+      { nom: "Héroïque", niveau: "Majeur", desc: "Ne laisse jamais quelqu'un en danger." },
+      { nom: "Têtu", niveau: "Mineur", desc: "Veut toujours avoir le dernier mot." },
+      { nom: "Loyal", niveau: "Mineur", desc: "N'abandonne jamais un membre de l'équipe." }
+    ],
+    pokemon: {
+      nom: "Charpenti",
+      type: "Combat",
+      taille: "Petit (−1)",
+      numero: 532,
+      blessuresMax: 2,
+      attributs: { "Agilité": "d6", "Ruse": "d6", "Force": "d10", "Trempe": "d8", "Vigueur": "d10" },
+      competences: { "Combat": "d8", "Athlétisme": "d6", "Perception": "d6" },
+      derives: { "Parade": 6, "Robustesse": 6, "Allure": 5 },
+      attaques: [
+        { nom: "Coup de Poutre", degats: "Force+d8", portee: "Mêlée", effet: "" },
+        { nom: "Casse-Brique", degats: "Force+d6", portee: "Mêlée", effet: "Ignore l'armure et brise les obstacles." }
+      ],
+      capacites: [
+        { nom: "Porteur de chantier", desc: "Soulève quatre fois son poids. Peut étayer un plafond qui s'effondre pendant 3 rounds." },
+        { nom: "Refus d'évoluer", contrainte: true, desc: "Fier et têtu : n'obéit pas à un ordre de retraite sans un jet de Dressage à difficulté 6." }
+      ]
+    }
+  },
+  {
+    id: "assistante",
+    role: "Assistante de la directrice",
+    emploi: "Chercheuse",
+    bennies: 3,
+    attributs: { "Agilité": "d6", "Ruse": "d10", "Force": "d4", "Trempe": "d6", "Vigueur": "d4" },
+    derives: { "Parade": 2, "Robustesse": 4, "Allure": 6 },
+    competences: {
+      "Recherche": "d10", "Sciences": "d8", "Perception": "d8", "Électronique": "d6",
+      "Dressage": "d6", "Persuasion": "d6", "Connaissances communes": "d6",
+      "Athlétisme": "d4", "Discrétion": "d4"
+    },
+    atouts: [
+      { nom: "Enquêteur", desc: "+2 en Recherche et pour repérer les indices." },
+      { nom: "Linguiste", desc: "Lit les écritures anciennes, dont l'alphabet Zarbi." }
+    ],
+    handicaps: [
+      { nom: "Maladroite", niveau: "Majeur", desc: "−2 en Athlétisme et en Discrétion." },
+      { nom: "Loyale envers la Directrice", niveau: "Mineur", desc: "Ne va jamais contre les consignes d'Edith Smith." }
+    ],
+    pokemon: {
+      nom: "Gardevoir",
+      type: "Psy / Fée",
+      taille: "Moyen",
+      numero: 282,
+      blessuresMax: 2,
+      attributs: { "Agilité": "d8", "Ruse": "d10", "Force": "d4", "Trempe": "d10", "Vigueur": "d6" },
+      competences: { "Combat": "d6", "Psy (attaque à distance)": "d10", "Perception": "d8" },
+      derives: { "Parade": 5, "Robustesse": 5, "Allure": 6 },
+      attaques: [
+        { nom: "Psyko", degats: "2d8", portee: "12/24", effet: "" },
+        { nom: "Protection", degats: "", portee: "Allié", effet: "+4 Parade à un allié pendant 1 round." }
+      ],
+      capacites: [
+        { nom: "Lien empathique", desc: "Ressent les émotions et la position de sa dresseuse jusqu'à 1 km." },
+        { nom: "Épuisement psychique", contrainte: true, desc: "Au-delà de 3 attaques par combat, gagne un niveau de Fatigue." }
+      ]
+    }
+  },
+  {
+    id: "apprenti",
+    role: "Apprenti soignant",
+    emploi: "Soigneur",
+    nomParDefaut: "Nathan",
+    histoire: "Délégué par l'Infirmière Joëlle de Mauville à la demande d'Edith Smith. C'est sa toute première mission officielle sur le terrain avec son Nymphali. Joëlle croit énormément en lui. Lui, beaucoup moins.",
+    bennies: 4,
+    attributs: { "Agilité": "d4", "Ruse": "d10", "Force": "d4", "Trempe": "d6", "Vigueur": "d6" },
+    derives: { "Parade": 2, "Robustesse": 5, "Allure": 6 },
+    competences: {
+      "Soins": "d10", "Médecine Pokémon": "d8", "Dressage": "d6", "Perception": "d6",
+      "Persuasion": "d6", "Athlétisme": "d4", "Connaissances communes": "d4", "Discrétion": "d4"
+    },
+    atouts: [
+      { nom: "Guérisseur", desc: "+2 aux jets de Soins." }
+    ],
+    handicaps: [
+      { nom: "Jeune", niveau: "Mineur", desc: "15 ans. +1 jeton de chance par session, mais les adultes le sous-estiment souvent." },
+      { nom: "Syndrome de l'imposteur", niveau: "Mineur", desc: "−1 à ses jets quand un adulte remet en cause son jugement, ou quand il doit décider seul d'un soin risqué." },
+      { nom: "Serment du soigneur", niveau: "Mineur", desc: "Ne refuse jamais un soin qu'on lui demande." }
+    ],
+    pokemon: {
+      nom: "Nymphali",
+      type: "Fée",
+      taille: "Moyen",
+      numero: 700,
+      blessuresMax: 2,
+      attributs: { "Agilité": "d8", "Ruse": "d8", "Force": "d6", "Trempe": "d10", "Vigueur": "d8" },
+      competences: { "Combat": "d6", "Fée (attaque à distance)": "d8", "Perception": "d8" },
+      derives: { "Parade": 5, "Robustesse": 6, "Allure": 6 },
+      attaques: [
+        { nom: "Vent Féérique", degats: "2d6", portee: "8/16", effet: "" },
+        { nom: "Voix Enjôleuse", degats: "2d6", portee: "Cône", effet: "Impossible à esquiver." }
+      ],
+      capacites: [
+        { nom: "Rubans apaisants", desc: "Au contact : calme un humain ou un Pokémon paniqué, et donne +2 au jet de Soins de son dresseur." },
+        { nom: "Douceur", contrainte: true, desc: "Refuse d'attaquer un adversaire déjà à terre ou Blessé." }
+      ]
+    }
+  },
+  {
+    id: "archeologue",
+    role: "Archéologue et dresseur",
+    emploi: "Aventurier",
+    nomParDefaut: "Kael Oryn",
+    histoire: "Ancien dresseur de circuit libre. Il a perdu Voltali lors d'un combat truqué : une électrocution forcée, trop intense. Il a quitté les arènes et s'est tourné vers l'archéologie. Abra l'a suivi après avoir quitté un dresseur qui ne pouvait pas le contrôler. Kael apprend à avancer autrement. Ce n'est pas confortable.",
+    bennies: 3,
+    attributs: { "Agilité": "d6", "Ruse": "d10", "Force": "d4", "Trempe": "d6", "Vigueur": "d6" },
+    derives: { "Parade": 2, "Robustesse": 5, "Allure": 6 },
+    competences: {
+      "Dressage": "d8", "Connaissances Pokémon": "d8", "Érudition (Archéologie)": "d8",
+      "Athlétisme": "d6", "Perception": "d6", "Survie": "d4",
+      "Connaissances communes": "d4", "Persuasion": "d4", "Discrétion": "d4"
+    },
+    atouts: [
+      { nom: "Lecteur de Combat", desc: "Au début de chaque combat, jet de Connaissances Pokémon. Succès : il connaît les faiblesses de type des Pokémon adverses. Relance : leurs capacités probables aussi." },
+      { nom: "Lien Émergent (Abra)", desc: "Une fois par session, Abra s'interpose entre Kael et une attaque, et encaisse les dégâts à sa place." }
+    ],
+    handicaps: [
+      { nom: "Compte à régler", niveau: "Majeur", desc: "Cherche l'intermédiaire qui a truqué le combat où Voltali est mort. Ne peut pas ignorer une piste qui y mène (jet de Trempe pour résister)." },
+      { nom: "Arrogance", niveau: "Mineur", desc: "Ne demande jamais d'aide à quelqu'un qu'il n'a pas vu à l'œuvre." },
+      { nom: "Sans le sou", niveau: "Mineur", desc: "Commence chaque scénario avec 100 ₽ de moins que le reste du groupe." }
+    ],
+    pokemon: {
+      nom: "Abra",
+      type: "Psy",
+      taille: "Petit (−1)",
+      numero: 63,
+      statut: "Compagnon libre : n'appartient à personne",
+      blessuresMax: 2,
+      attributs: { "Agilité": "d10", "Ruse": "d10", "Force": "d4", "Trempe": "d6", "Vigueur": "d4" },
+      competences: { "Perception": "d8", "Discrétion": "d8", "Combat": "d4" },
+      derives: { "Parade": 4, "Robustesse": 3, "Allure": 4 },
+      attaques: [],
+      capacites: [
+        { nom: "Téléport", desc: "Se déplace de 20\" sans provoquer d'attaque d'opportunité." },
+        { nom: "Téléport de secours", desc: "Une fois par scène : emmène Kael et un allié adjacent hors de danger." },
+        { nom: "Psychométrie", desc: "En touchant un objet ancien, jet de Ruse pour percevoir un fragment de son passé." },
+        { nom: "Sommeil profond", contrainte: true, desc: "Dort 18 heures sur 24." },
+        { nom: "Esprit libre", contrainte: true, desc: "Il lui arrive d'agir de lui-même, sans ordre de Kael." }
+      ]
+    }
+  }
+];
+
+/* Fiches pas encore prêtes : elles apparaissent grisées dans les onglets. */
+const A_VENIR = [];
+/* ===================================================================== */
+</script>
+<style>
+:root {
+  --violet: #3A2C4F;
+  --violet-soft: #5B4A73;
+  --fond: #EFEAF4;
+  --surface: #FFFFFF;
+  --surface-2: #F7F4FA;
+  --encre: #231B2E;
+  --gris: #685E75;
+  --trait: #D9D1E3;
+  --argile: #A8642C;
+  --argile-soft: #F4E6D8;
+  --ok: #2B7563;
+  --ok-soft: #DDF0EA;
+  --danger: #A8323F;
+  --danger-soft: #F7DFE2;
+  --titre: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --texte: "Atkinson Hyperlegible", "Segoe UI", Verdana, sans-serif;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fond: #1A1520; --surface: #251E2D; --surface-2: #2E2638; --encre: #EEE8F4;
+    --gris: #AFA4BC; --trait: #3F3549; --argile: #E0A06A; --argile-soft: #3A2B20;
+    --ok: #6CC7AE; --ok-soft: #1D3530; --danger: #EE8591; --danger-soft: #3C2027;
+    --violet: #2A2038; --violet-soft: #4A3B5E;
+  }
+}
+:root[data-theme="dark"] {
+  --fond: #1A1520; --surface: #251E2D; --surface-2: #2E2638; --encre: #EEE8F4;
+  --gris: #AFA4BC; --trait: #3F3549; --argile: #E0A06A; --argile-soft: #3A2B20;
+  --ok: #6CC7AE; --ok-soft: #1D3530; --danger: #EE8591; --danger-soft: #3C2027;
+  --violet: #2A2038; --violet-soft: #4A3B5E;
+}
+*, *::before, *::after { box-sizing: inherit; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0; background: var(--fond); color: var(--encre);
+  font-family: var(--texte); font-size: 16px; line-height: 1.5;
+  padding-bottom: 170px;
+}
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--argile); outline-offset: 2px; }
+
+/* ---------- En-tête ---------- */
+header.bandeau {
+  background: var(--violet); color: #F3EEF8;
+  padding: 28px 20px 0;
+}
+.bandeau-inner { max-width: 1100px; margin: 0 auto; }
+.bandeau h1 {
+  font-family: var(--titre); font-weight: 800; font-size: clamp(2rem, 6vw, 3.4rem);
+  letter-spacing: -0.02em; line-height: 1; margin: 0;
+}
+.bandeau p { margin: 8px 0 0; color: #CFC4DC; max-width: 60ch; }
+.sync { font-size: 0.85rem; margin-top: 10px; display: inline-flex; gap: 8px; align-items: center; color: #CFC4DC; }
+.sync i { width: 9px; height: 9px; border-radius: 50%; background: #9C90AA; display: inline-block; }
+.sync[data-etat="ok"] i { background: #6CC7AE; }
+.sync[data-etat="err"] i { background: #EE8591; }
+
+nav.onglets { display: flex; gap: 4px; margin-top: 22px; overflow-x: auto; }
+nav.onglets button {
+  border: 0; background: transparent; color: #CFC4DC;
+  padding: 12px 16px; border-radius: 10px 10px 0 0; white-space: nowrap;
+  font-family: var(--titre); font-weight: 700; font-size: 1rem;
+}
+nav.onglets button[aria-selected="true"] { background: var(--fond); color: var(--encre); }
+nav.onglets button:disabled { opacity: 0.45; cursor: not-allowed; font-weight: 500; }
+
+/* ---------- Mise en page ---------- */
+main { max-width: 1100px; margin: 0 auto; padding: 24px 20px; display: grid; gap: 24px; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
+@media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+
+.carte { background: var(--surface); border: 1px solid var(--trait); border-radius: 14px; padding: 20px; }
+.carte + .carte { margin-top: 0; }
+.carte-pokemon { border-top: 6px solid var(--argile); }
+.carte h2 { font-family: var(--titre); font-weight: 800; font-size: 1.6rem; margin: 0; line-height: 1.1; }
+.carte h3 { font-family: var(--titre); font-weight: 700; font-size: 1.05rem; margin: 22px 0 10px; }
+.sous { color: var(--gris); margin: 4px 0 0; }
+.histoire { font-style: italic; margin: 12px 0 0; max-width: 62ch; border-left: 3px solid var(--argile); padding-left: 12px; }
+
+.identite { display: grid; grid-template-columns: 1fr 140px; gap: 10px; margin-top: 14px; }
+.identite label { display: block; font-size: 0.8rem; color: var(--gris); margin-bottom: 2px; }
+.identite input {
+  width: 100%; border: 1px solid var(--trait); background: var(--surface-2);
+  border-radius: 8px; padding: 8px 10px;
+}
+.identite input.nom { font-family: var(--titre); font-weight: 700; font-size: 1.2rem; }
+
+/* ---------- État (bennies, blessures) ---------- */
+.etat { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 18px; }
+.jauge { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; }
+.jauge .nom { font-size: 0.85rem; color: var(--gris); display: flex; justify-content: space-between; }
+.cases { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.case {
+  width: 34px; height: 34px; border-radius: 8px; border: 2px solid var(--trait);
+  background: var(--surface); font-weight: 700; font-size: 0.8rem; color: var(--gris);
+}
+.case.on { background: var(--danger); border-color: var(--danger); color: #fff; }
+.case.inc { width: auto; padding: 0 8px; }
+.compteur { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.compteur b { font-family: var(--titre); font-size: 1.8rem; min-width: 1.4ch; text-align: center; line-height: 1; }
+.compteur button, .petit {
+  width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--trait); background: var(--surface); font-weight: 700;
+}
+.lien { background: none; border: 0; padding: 0; color: var(--argile); text-decoration: underline; font-size: 0.8rem; }
+.toggle { margin-top: 6px; border: 2px solid var(--trait); background: var(--surface); border-radius: 8px; padding: 6px 12px; font-weight: 700; }
+.toggle[aria-pressed="true"] { background: var(--argile); border-color: var(--argile); color: #fff; }
+.malus { margin: 10px 0 0; font-size: 0.9rem; color: var(--danger); min-height: 1.4em; }
+
+/* ---------- Dés cliquables ---------- */
+.traits { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.trait {
+  display: flex; justify-content: space-between; align-items: center; gap: 6px;
+  text-align: left; border: 1px solid var(--trait); background: var(--surface-2);
+  border-radius: 10px; padding: 10px 12px;
+}
+.trait:hover { border-color: var(--argile); }
+.trait .de {
+  font-family: var(--titre); font-weight: 800; color: var(--argile);
+  background: var(--argile-soft); border-radius: 6px; padding: 1px 7px;
+}
+.attributs .trait { flex-direction: column; align-items: flex-start; }
+.attributs .trait .de { font-size: 1.25rem; }
+.derives { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.derives div { flex: 1 1 90px; border-left: 3px solid var(--violet-soft); padding: 2px 0 2px 10px; }
+.derives span { display: block; font-size: 0.8rem; color: var(--gris); }
+.derives b { font-family: var(--titre); font-size: 1.5rem; }
+
+.liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.liste li { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; }
+.liste b { font-family: var(--titre); }
+.tag { font-size: 0.75rem; font-weight: 700; border-radius: 999px; padding: 1px 8px; margin-left: 6px; background: var(--trait); }
+.tag.majeur { background: var(--danger-soft); color: var(--danger); }
+.tag.contrainte { background: var(--argile-soft); color: var(--argile); }
+.liste p { margin: 2px 0 0; color: var(--gris); font-size: 0.95rem; }
+
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+th { text-align: left; font-size: 0.8rem; color: var(--gris); font-weight: 400; padding: 4px 8px; }
+td { padding: 8px; border-top: 1px solid var(--trait); vertical-align: top; }
+td .effet { color: var(--gris); font-size: 0.85rem; display: block; }
+.btn-degats {
+  border: 0; background: var(--argile); color: #fff; border-radius: 8px;
+  padding: 6px 10px; font-weight: 700; white-space: nowrap;
+}
+
+textarea {
+  width: 100%; min-height: 120px; resize: vertical; border: 1px solid var(--trait);
+  background: var(--surface-2); border-radius: 10px; padding: 10px;
+}
+.colonne { display: grid; gap: 24px; }
+
+/* ---------- Plateau de dés ---------- */
+#plateau {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  background: var(--violet); color: #F3EEF8;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -4px 20px rgba(20, 10, 30, 0.25);
+}
+.plateau-inner { max-width: 1100px; margin: 0 auto; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.resultat { display: flex; align-items: center; gap: 14px; flex: 1 1 280px; min-width: 0; }
+.total {
+  font-family: var(--titre); font-weight: 800; font-size: 2.8rem; line-height: 1;
+  min-width: 2.2ch; text-align: center;
+}
+.resultat .quoi { font-weight: 700; }
+.resultat .detail { color: #CFC4DC; font-size: 0.85rem; overflow-wrap: anywhere; }
+.verdict { display: inline-block; font-size: 0.8rem; font-weight: 700; border-radius: 999px; padding: 1px 9px; margin-left: 6px; }
+.verdict.ok { background: #6CC7AE; color: #10231E; }
+.verdict.ko { background: #EE8591; color: #2B0E13; }
+.verdict.crit { background: #FFD27A; color: #2E1F00; }
+.mod { display: flex; align-items: center; gap: 8px; }
+.mod span { font-size: 0.85rem; color: #CFC4DC; }
+.mod b { font-family: var(--titre); font-size: 1.3rem; min-width: 2.2ch; text-align: center; }
+.mod button, .plateau-inner > button {
+  border: 1px solid #7C6C92; background: transparent; color: #F3EEF8; border-radius: 8px; padding: 6px 10px; font-weight: 700;
+}
+#historique { max-width: 1100px; margin: 10px auto 0; list-style: none; padding: 0; font-size: 0.85rem; color: #CFC4DC; max-height: 30vh; overflow-y: auto; }
+#historique li { border-top: 1px solid #54456A; padding: 4px 0; }
+#plateau .total.flash { animation: flash 0.35s ease-out; }
+@keyframes flash { from { transform: scale(1.35); color: #FFD27A; } to { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { #plateau .total.flash { animation: none; } }
+</style>
+</head>
+<body>
+
+<header class="bandeau">
+  <div class="bandeau-inner">
+    <h1>Le Tombeau d'Argile</h1>
+    <p>Centre de recherches des Ruines d'Alpha. Touche une caractéristique ou une compétence pour lancer les dés.</p>
+    <div class="sync" id="sync" data-etat="local"><i></i><span>Enregistré sur cet appareil</span></div>
+    <nav class="onglets" id="onglets" role="tablist" aria-label="Personnages"></nav>
+  </div>
+</header>
+
+<main id="fiche" role="tabpanel"></main>
+
+<section id="plateau" aria-live="polite">
+  <div class="plateau-inner">
+    <div class="resultat">
+      <div class="total" id="total">–</div>
+      <div>
+        <div class="quoi" id="quoi">Aucun jet pour l'instant</div>
+        <div class="detail" id="detail">Les dés « explosent » : un résultat maximal se relance et s'additionne.</div>
+      </div>
+    </div>
+    <div class="mod">
+      <span>Modificateur</span>
+      <button type="button" data-mod="-1" aria-label="Retirer 1">−</button>
+      <b id="modval">0</b>
+      <button type="button" data-mod="1" aria-label="Ajouter 1">+</button>
+    </div>
+    <button type="button" id="voirHisto" aria-expanded="false">Historique</button>
+  </div>
+  <ul id="historique" hidden></ul>
+</section>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- Outils ---------- */
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const faces = d => parseInt(String(d).replace(/[^0-9]/g, ""), 10) || 4;
+  const cle = id => "expeAlpha:" + id;
+
+  function etatParDefaut(p) {
+    return { nom: p.nomParDefaut || "", genre: "", bennies: p.bennies, blessures: 0, fatigue: 0, secoue: false,
+             pkBlessures: 0, pkSecoue: false, notes: "" };
+  }
+
+  const etats = {};
+  PERSONNAGES.forEach(p => {
+    let e = etatParDefaut(p);
+    try {
+      const brut = localStorage.getItem(cle(p.id));
+      if (brut) e = Object.assign(e, JSON.parse(brut));
+    } catch (_) { /* stockage indisponible : on garde l'état par défaut */ }
+    etats[p.id] = e;
+  });
+
+  let actif = PERSONNAGES[0].id;
+  const demande = new URLSearchParams(location.search).get("pj") || location.hash.slice(1);
+  if (PERSONNAGES.some(p => p.id === demande)) actif = demande;
+
+  let modificateur = 0;
+  const historique = [];
+
+  /* ---------- Sauvegarde ---------- */
+  let db = null;
+  const minuteurs = {};
+  function sauver(id) {
+    try { localStorage.setItem(cle(id), JSON.stringify(etats[id])); } catch (_) {}
+    if (db) {
+      clearTimeout(minuteurs[id]);
+      minuteurs[id] = setTimeout(() => {
+        db.ref("fiches/" + id).set(etats[id]).catch(() => statut("err", "Échec de la synchronisation"));
+      }, 400);
+    }
+  }
+  function statut(etat, texte) {
+    const el = document.getElementById("sync");
+    el.dataset.etat = etat;
+    el.querySelector("span").textContent = texte;
+  }
+
+  /* ---------- Dés ---------- */
+  function lancer(n) {
+    const tirages = [];
+    let r;
+    do { r = 1 + Math.floor(Math.random() * n); tirages.push(r); } while (r === n);
+    return { total: tirages.reduce((a, b) => a + b, 0), tirages };
+  }
+  const detailDe = (n, res) => "d" + n + " : " + res.tirages.join("+");
+
+  function malusJoueur(e) { return Math.min(e.blessures, 3) + e.fatigue; }
+
+  function jetTrait(libelle, de, joker, malus) {
+    const n = faces(de);
+    const t = lancer(n);
+    const morceaux = [detailDe(n, t)];
+    let meilleur = t.total;
+    let critique = false;
+    if (joker) {
+      const j = lancer(6);
+      morceaux.push("Joker " + detailDe(6, j));
+      meilleur = Math.max(t.total, j.total);
+      critique = t.tirages[0] === 1 && j.tirages[0] === 1;
+    }
+    if (modificateur) morceaux.push("mod " + (modificateur > 0 ? "+" : "") + modificateur);
+    if (malus) morceaux.push("blessures/fatigue −" + malus);
+    const total = meilleur + modificateur - malus;
+    let verdict;
+    if (critique) verdict = { cls: "crit", txt: "Échec critique" };
+    else if (total >= 4) {
+      const relances = Math.floor((total - 4) / 4);
+      verdict = { cls: "ok", txt: relances ? "Succès + " + relances + " relance" + (relances > 1 ? "s" : "") : "Succès" };
+    } else verdict = { cls: "ko", txt: "Échec" };
+    afficher(total, libelle, morceaux.join(" · "), verdict);
+  }
+
+  function jetDegats(libelle, formule, attributs) {
+    const morceaux = [];
+    let total = 0;
+    formule.replace(/\s/g, "").split("+").forEach(part => {
+      if (/^force$/i.test(part)) {
+        const n = faces(attributs["Force"]);
+        const r = lancer(n); total += r.total; morceaux.push("Force " + detailDe(n, r));
+        return;
+      }
+      const m = part.match(/^(\d*)d(\d+)$/i);
+      if (m) {
+        const nb = parseInt(m[1] || "1", 10), n = parseInt(m[2], 10);
+        for (let i = 0; i < nb; i++) { const r = lancer(n); total += r.total; morceaux.push(detailDe(n, r)); }
+        return;
+      }
+      const k = parseInt(part, 10);
+      if (!isNaN(k)) { total += k; morceaux.push("+" + k); }
+    });
+    if (modificateur) { total += modificateur; morceaux.push("mod " + (modificateur > 0 ? "+" : "") + modificateur); }
+    afficher(total, libelle + " (dégâts)", morceaux.join(" · "), null);
+  }
+
+  function afficher(total, quoi, detail, verdict) {
+    const t = document.getElementById("total");
+    t.textContent = total;
+    t.classList.remove("flash"); void t.offsetWidth; t.classList.add("flash");
+    const q = document.getElementById("quoi");
+    q.textContent = quoi;
+    if (verdict) {
+      const v = document.createElement("span");
+      v.className = "verdict " + verdict.cls;
+      v.textContent = verdict.txt;
+      q.appendChild(v);
+    }
+    document.getElementById("detail").textContent = detail;
+    historique.unshift(quoi + " → " + total + (verdict ? " (" + verdict.txt + ")" : "") + " · " + detail);
+    historique.length = Math.min(historique.length, 15);
+    const ul = document.getElementById("historique");
+    ul.replaceChildren(...historique.map(h => { const li = document.createElement("li"); li.textContent = h; return li; }));
+  }
+
+  /* ---------- Rendu ---------- */
+  function boutonsTraits(obj, cible) {
+    return Object.entries(obj).map(([nom, de]) =>
+      `<button type="button" class="trait" data-action="jet" data-cible="${cible}" data-nom="${esc(nom)}" data-de="${esc(de)}">
+         <span>${esc(nom)}</span><span class="de">${esc(de)}</span></button>`).join("");
+  }
+  function derives(obj) {
+    return `<div class="derives">${Object.entries(obj).map(([k, v]) => `<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>`;
+  }
+  function casesBlessures(nb, max, action, inc) {
+    let h = "";
+    for (let i = 1; i <= max; i++) {
+      h += `<button type="button" class="case ${nb >= i ? "on" : ""}" data-action="${action}" data-val="${i}" aria-label="Blessure ${i}" aria-pressed="${nb >= i}">${i}</button>`;
+    }
+    h += `<button type="button" class="case inc ${nb > max ? "on" : ""}" data-action="${action}" data-val="${max + 1}" aria-pressed="${nb > max}">${inc}</button>`;
+    return h;
+  }
+
+  function rendre() {
+    const p = PERSONNAGES.find(x => x.id === actif);
+    const e = etats[actif];
+    const pk = p.pokemon;
+    const malus = malusJoueur(e);
+    const malusPk = Math.min(e.pkBlessures, pk.blessuresMax);
+
+    document.getElementById("fiche").innerHTML = `
+      <div class="colonne">
+        <article class="carte">
+          <h2>${esc(p.role)}</h2>
+          <p class="sous">${esc(p.emploi)} · Joker · Partenaire : ${esc(pk.nom)}</p>
+          ${p.histoire ? `<p class="histoire">${esc(p.histoire)}</p>` : ""}
+          <div class="identite">
+            <div><label for="nom">Nom du personnage</label><input id="nom" class="nom" data-champ="nom" value="${esc(e.nom)}" placeholder="À toi de choisir"></div>
+            <div><label for="genre">Genre</label><input id="genre" data-champ="genre" value="${esc(e.genre)}" placeholder="Libre"></div>
+          </div>
+
+          <div class="etat">
+            <div class="jauge">
+              <div class="nom"><span>Jetons de chance</span><button type="button" class="lien" data-action="session">Nouvelle session</button></div>
+              <div class="compteur">
+                <button type="button" data-action="bennies" data-val="-1" aria-label="Dépenser un jeton de chance">−</button>
+                <b>${e.bennies}</b>
+                <button type="button" data-action="bennies" data-val="1" aria-label="Gagner un jeton de chance">+</button>
+              </div>
+            </div>
+            <div class="jauge">
+              <div class="nom"><span>Blessures</span></div>
+              <div class="cases">${casesBlessures(e.blessures, 3, "blessures", "Incapacité")}</div>
+            </div>
+            <div class="jauge">
+              <div class="nom"><span>Fatigue</span></div>
+              <div class="cases">${casesBlessures(e.fatigue, 1, "fatigue", "Épuisé")}</div>
+            </div>
+            <div class="jauge">
+              <div class="nom"><span>État</span></div>
+              <button type="button" class="toggle" data-action="secoue" aria-pressed="${e.secoue}">Secoué</button>
+            </div>
+          </div>
+          <p class="malus">${malus ? "Malus appliqué automatiquement à tes jets : −" + malus : ""}</p>
+
+          <h3>Caractéristiques</h3>
+          <div class="traits attributs">${boutonsTraits(p.attributs, "pj")}</div>
+          ${derives(p.derives)}
+
+          <h3>Compétences</h3>
+          <div class="traits">${boutonsTraits(p.competences, "pj")}</div>
+
+          <h3>Atouts</h3>
+          <ul class="liste">${p.atouts.map(a => `<li><b>${esc(a.nom)}</b><p>${esc(a.desc)}</p></li>`).join("")}</ul>
+
+          <h3>Handicaps</h3>
+          <ul class="liste">${p.handicaps.map(h => `<li><b>${esc(h.nom)}</b><span class="tag ${h.niveau === "Majeur" ? "majeur" : ""}">${esc(h.niveau)}</span><p>${esc(h.desc)}</p></li>`).join("")}</ul>
+        </article>
+
+        <article class="carte">
+          <h3 style="margin-top:0">Notes</h3>
+          <textarea data-champ="notes" aria-label="Notes" placeholder="Indices, noms, objets trouvés…">${esc(e.notes)}</textarea>
+        </article>
+      </div>
+
+      <article class="carte carte-pokemon">
+        <h2>${esc(pk.nom)}</h2>
+        <p class="sous">N°${esc(pk.numero)} · ${esc(pk.type)} · ${esc(pk.taille)} · ${esc(pk.statut || "Extra spécial")}</p>
+
+        <div class="etat">
+          <div class="jauge">
+            <div class="nom"><span>Blessures</span></div>
+            <div class="cases">${casesBlessures(e.pkBlessures, pk.blessuresMax, "pkBlessures", "K.O.")}</div>
+          </div>
+          <div class="jauge">
+            <div class="nom"><span>État</span></div>
+            <button type="button" class="toggle" data-action="pkSecoue" aria-pressed="${e.pkSecoue}">Secoué</button>
+          </div>
+        </div>
+        <p class="malus">${malusPk ? "Malus appliqué à ses jets : −" + malusPk : ""}</p>
+
+        <h3>Caractéristiques</h3>
+        <div class="traits attributs">${boutonsTraits(pk.attributs, "pk")}</div>
+        ${derives(pk.derives)}
+
+        <h3>Compétences</h3>
+        <div class="traits">${boutonsTraits(pk.competences, "pk")}</div>
+
+        ${pk.attaques.length ? `
+        <h3>Attaques</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Attaque</th><th>Dégâts</th><th>Portée</th><th></th></tr></thead>
+          <tbody>${pk.attaques.map((a, i) => `
+            <tr>
+              <td><b>${esc(a.nom)}</b>${a.effet ? `<span class="effet">${esc(a.effet)}</span>` : ""}</td>
+              <td>${esc(a.degats || "—")}</td>
+              <td>${esc(a.portee)}</td>
+              <td>${a.degats ? `<button type="button" class="btn-degats" data-action="degats" data-i="${i}">Dégâts</button>` : ""}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table></div>
+
+        ` : ""}
+        <h3>Capacités</h3>
+        <ul class="liste">${pk.capacites.map(c => `<li><b>${esc(c.nom)}</b>${c.contrainte ? '<span class="tag contrainte">Contrainte</span>' : ""}<p>${esc(c.desc)}</p></li>`).join("")}</ul>
+      </article>`;
+
+    document.querySelectorAll("#onglets [role=tab]").forEach(b => b.setAttribute("aria-selected", b.dataset.id === actif));
+  }
+
+  function rendreOnglets() {
+    const nav = document.getElementById("onglets");
+    nav.innerHTML = PERSONNAGES.map(p =>
+      `<button type="button" role="tab" data-id="${p.id}" aria-selected="${p.id === actif}">${esc(p.role)}</button>`).join("")
+      + A_VENIR.map(r => `<button type="button" disabled title="Fiche bientôt disponible">${esc(r)}</button>`).join("");
+  }
+
+  /* ---------- Interactions ---------- */
+  document.getElementById("onglets").addEventListener("click", ev => {
+    const b = ev.target.closest("[role=tab]");
+    if (!b) return;
+    actif = b.dataset.id;
+    history.replaceState(null, "", "?pj=" + actif);
+    rendre();
+  });
+
+  document.getElementById("fiche").addEventListener("click", ev => {
+    const b = ev.target.closest("[data-action]");
+    if (!b) return;
+    const p = PERSONNAGES.find(x => x.id === actif);
+    const e = etats[actif];
+    const val = parseInt(b.dataset.val, 10);
+    const bascule = (champ) => { e[champ] = e[champ] === val ? val - 1 : val; };
+    switch (b.dataset.action) {
+      case "jet": {
+        const pj = b.dataset.cible === "pj";
+        const libelle = (pj ? (e.nom || p.role) : p.pokemon.nom) + " · " + b.dataset.nom;
+        const malus = pj ? malusJoueur(e) : Math.min(e.pkBlessures, p.pokemon.blessuresMax);
+        jetTrait(libelle, b.dataset.de, pj, malus);
+        return;
+      }
+      case "degats": {
+        const a = p.pokemon.attaques[parseInt(b.dataset.i, 10)];
+        jetDegats(p.pokemon.nom + " · " + a.nom, a.degats, p.pokemon.attributs);
+        return;
+      }
+      case "bennies": e.bennies = Math.max(0, e.bennies + val); break;
+      case "session": e.bennies = p.bennies; break;
+      case "blessures": bascule("blessures"); break;
+      case "fatigue": bascule("fatigue"); break;
+      case "pkBlessures": bascule("pkBlessures"); break;
+      case "secoue": e.secoue = !e.secoue; break;
+      case "pkSecoue": e.pkSecoue = !e.pkSecoue; break;
+      default: return;
+    }
+    sauver(actif);
+    rendre();
+  });
+
+  document.getElementById("fiche").addEventListener("input", ev => {
+    const champ = ev.target.dataset.champ;
+    if (!champ) return;
+    etats[actif][champ] = ev.target.value;
+    sauver(actif);
+  });
+
+  document.querySelectorAll("[data-mod]").forEach(b => b.addEventListener("click", () => {
+    modificateur = Math.max(-10, Math.min(10, modificateur + parseInt(b.dataset.mod, 10)));
+    document.getElementById("modval").textContent = (modificateur > 0 ? "+" : "") + modificateur;
+  }));
+
+  document.getElementById("voirHisto").addEventListener("click", ev => {
+    const ul = document.getElementById("historique");
+    ul.hidden = !ul.hidden;
+    ev.currentTarget.setAttribute("aria-expanded", String(!ul.hidden));
+  });
+
+  /* ---------- Firebase (facultatif) ---------- */
+  function chargerScript(src) {
+    return new Promise((ok, ko) => {
+      const s = document.createElement("script");
+      s.src = src; s.onload = ok; s.onerror = ko;
+      document.head.appendChild(s);
+    });
+  }
+  async function demarrerFirebase() {
+    if (!FIREBASE_CONFIG) return;
+    statut("local", "Connexion au MJ…");
+    try {
+      await chargerScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js");
+      await chargerScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js");
+      firebase.initializeApp(FIREBASE_CONFIG);
+      db = firebase.database();
+      db.ref(".info/connected").on("value", s => {
+        if (s.val()) statut("ok", "Synchronisé avec le MJ");
+        else statut("err", "Hors ligne, enregistré sur cet appareil");
+      });
+      PERSONNAGES.forEach(p => {
+        db.ref("fiches/" + p.id).on("value", snap => {
+          const distant = snap.val();
+          if (!distant) { sauver(p.id); return; }
+          if (JSON.stringify(distant) === JSON.stringify(etats[p.id])) return;
+          etats[p.id] = Object.assign(etatParDefaut(p), distant);
+          try { localStorage.setItem(cle(p.id), JSON.stringify(etats[p.id])); } catch (_) {}
+          const saisie = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.champ;
+          if (p.id === actif && !saisie) rendre();
+        });
+      });
+    } catch (_) {
+      db = null;
+      statut("err", "Synchronisation impossible, enregistré sur cet appareil");
+    }
+  }
+
+  rendreOnglets();
+  rendre();
+  demarrerFirebase();
+})();
+</script>
+</body>
+</html>
